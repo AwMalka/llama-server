@@ -22,9 +22,7 @@ import uvicorn
 import yaml
 from fastapi import FastAPI
 from pydantic import BaseModel
-from pyllamacpp.model import Model
 from sse_starlette import EventSourceResponse
-
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "chat-with-bob.txt"
 PROMPT = PROMPT_PATH.read_text(encoding="utf-8").strip()
@@ -32,11 +30,9 @@ PROMPT_SIZE = len(PROMPT)
 REVERSE_PROMPT = "User:"
 REPLY_PREFIX = "Bob: "
 
-
 class Message(BaseModel):
     role: str
     content: str
-
 
 class Conversation(BaseModel):
     model: str
@@ -64,7 +60,6 @@ class ModelInfo(BaseModel):
 class ModelList(BaseModel):
     data: List[ModelInfo]
     object: str = "list"
-
 
 class Buffer:
     def __init__(self, prompt_size: int, reverse_prompt: str) -> None:
@@ -123,6 +118,7 @@ logger = logging.getLogger(name=__name__)
 
 model_id = None
 model_path = None
+models_list = None
 output_q = Queue()
 input_q = Queue()
 buffer = Buffer(PROMPT_SIZE, REVERSE_PROMPT)
@@ -142,7 +138,7 @@ def generate(model_path: str, input_q: Queue, output_q: Queue) -> None:
         grab_text_callback=input_callback,
         n_predict=256,
         n_batch=1024,
-#         n_keep=48,
+        #n_keep=48,
         repeat_penalty=1.0,
         n_threads=8,
         interactive=True,
@@ -214,21 +210,28 @@ def chat(conv: Conversation):
     else:
         return EventSourceResponse(chat_stream(user_utt))
 
+# def get_models_list():
+#     return models_list
 
-@app.get("/v1/models")
-def models():
-    return ModelList(data=[ModelInfo(id=model_id)])
+# @app.get("/v1/models")
+# def models(models_list: KnownModels = Depends(get_models_list)):
+#     print("models() ****")
+#     print(models_list.json(indent=2))
+#     print("models() ****")
+#     return models_list
+
+#@app.get("/v1/models")
+#def models():
+#    return ModelList(data=[ModelInfo(id=model_id)])
 
 
 class ModelPath(BaseModel):
     name: str
     path: str
 
-
 class KnownModels(BaseModel):
     model_home: str
     models: Dict[str, ModelPath]
-
 
 @click.command(context_settings={"show_default": True})
 @click.option(
@@ -245,7 +248,7 @@ class KnownModels(BaseModel):
     default=False,
     help="Reload server automatically (for development).",
 )
-@click.option("--model-id", type=click.STRING, default="llama-7b", help="Model id.")
+@click.option("--model-id", type=click.STRING, default="gpt4all", help="Model id.")
 @click.option("--model-path", type=click.Path(exists=True), help="Model path.")
 def main(
     models_yml: Path,
@@ -255,21 +258,31 @@ def main(
     model_id: Optional[str] = None,
     model_path: Optional[Path] = None,
 ):
+    global models_list
     with open(models_yml, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    KNOWN_MODELS = KnownModels.parse_obj(data)
+    models_list = KnownModels.parse_obj(data)
+
+    # print("main() ****")
+    # print(models_list.json(indent=2))
+    # print("main() ****")
+
     if model_id is None:
-        model_id = os.environ.get("LLAMA_MODEL_ID", "llama-7b")
-        assert model_id in KNOWN_MODELS.models, f"Unknown model id: {model_id}"
+        model_id = os.environ.get("LLAMA_MODEL_ID", "gpt4all")
+        assert model_id in models_list.models, f"Unknown model id: {model_id}"
     if model_path is None:
-        model_path = Path(KNOWN_MODELS.models.get(model_id).path)
+        model_path = Path(models_list.models.get(model_id).path)
         if not model_path.is_absolute():
-            model_path = Path(KNOWN_MODELS.model_home) / model_path
+            model_path = Path(models_list.model_home) / model_path
     globals()["model_id"] = model_id
     globals()["model_path"] = str(model_path)
 
     uvicorn.run("llama_server.server:app", host=host, port=port, reload=reload)
 
+@app.get("/v1/models")
+def models():
+    print(models_list.json(indent=2))
+    return models_list
 
 if __name__ == "__main__":
     main()
