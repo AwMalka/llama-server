@@ -237,7 +237,7 @@ class KnownModels(BaseModel):
     required=True,
     help="Path to the `models.yml` file.",
 )
-@click.option("--host", type=click.STRING, default="127.0.0.1", help="Server host.")
+@click.option("--host", type=click.STRING, default="0.0.0.0", help="Server host.")
 @click.option("--port", type=click.INT, default=8000, help="Server port.")
 @click.option(
     "--reload",
