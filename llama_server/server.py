@@ -282,8 +282,9 @@ def main(
 
 @app.get("/v1/models")
 def models():
-    print(models_list.json(indent=2))
-    return models_list
+    #print(models_list.json(indent=2))
+    model_info_list = [ModelInfo(id=model_id, path=model_path) for model_id, model_path in models_list.models.items()]
+    return ModelList(data=model_info_list)
 
 if __name__ == "__main__":
     main()
