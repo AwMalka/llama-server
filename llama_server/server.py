@@ -142,7 +142,7 @@ def generate(model_path: str, input_q: Queue, output_q: Queue) -> None:
         grab_text_callback=input_callback,
         n_predict=256,
         n_batch=1024,
-        n_keep=48,
+#         n_keep=48,
         repeat_penalty=1.0,
         n_threads=8,
         interactive=True,
