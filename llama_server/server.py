@@ -22,6 +22,7 @@ import uvicorn
 import yaml
 from fastapi import FastAPI
 from pydantic import BaseModel
+from pyllamacpp.model import Model
 from sse_starlette import EventSourceResponse
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "chat-with-bob.txt"
